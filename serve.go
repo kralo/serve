@@ -6,6 +6,7 @@ import (
 	"github.com/daaku/go.httpgzip"
 	"log"
 	"net/http"
+	"net/http/httptest"
 	"os"
 
 	"crypto/ecdsa"
@@ -18,12 +19,28 @@ import (
 	"net"
 	"strings"
 	"time"
+ 
 )
 
 func logHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println(r.Method, r.RequestURI)
-		h.ServeHTTP(w, r)
+		log.Println("IN< ",r.Method, r.RequestURI, r.Header)
+//		h.ServeHTTP(w, r)
+
+        // switch out response writer for a recorder
+        // for all subsequent handlers
+        c := httptest.NewRecorder()
+	h.ServeHTTP(c, r)
+
+	log.Println("OUT> ", c.Result().StatusCode, c.Result().Status, c.Result().ContentLength, c.Header())	
+        // copy everything from response recorder
+        // to actual response writer
+        for k, v := range c.HeaderMap {
+            w.Header()[k] = v
+        }
+        w.WriteHeader(c.Code)
+        c.Body.WriteTo(w)
+	
 	})
 }
 
